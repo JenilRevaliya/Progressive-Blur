@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 300" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bgGradArch" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#090d15" />
+      <stop offset="100%" stop-color="#121824" />
+    </linearGradient>
+    <linearGradient id="cardGradArch" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1c2436" />
+      <stop offset="100%" stop-color="#121724" />
+    </linearGradient>
+    <filter id="glowArch" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="3" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+  <rect width="960" height="300" rx="16" fill="url(#bgGradArch)" stroke="#223046" stroke-width="1.5" />
+  <g transform="translate(36, 32)">
+    <text x="0" y="0" fill="#00d2ff" font-family="-apple-system, sans-serif" font-size="16" font-weight="bold">iPhone Duo Progressive Blur: System Pipeline</text>
+    <text x="0" y="20" fill="#8b9cb5" font-family="-apple-system, sans-serif" font-size="11">Physical Sensor Input -> DSP Filtering -> GPU Metal Shaders -> Non-Activating Overlay</text>
+  </g>
+  <!-- Card 1: Physical Sensor -->
+  <g transform="translate(36, 85)">
+    <rect width="195" height="175" rx="12" fill="url(#cardGradArch)" stroke="#2b3b55" stroke-width="1.5" />
+    <rect x="14" y="14" width="167" height="24" rx="6" fill="#0072ff" fill-opacity="0.2" />
+    <text x="97" y="30" fill="#00d2ff" font-family="-apple-system, sans-serif" font-size="10" font-weight="bold" text-anchor="middle">PHYSICAL SENSOR</text>
+    <text x="16" y="65" fill="#ffffff" font-family="-apple-system, sans-serif" font-size="13" font-weight="bold">Apple Hall Sensor</text>
+    <text x="16" y="86" fill="#8b9cb5" font-family="-apple-system, sans-serif" font-size="10">Device ID: 0x8104</text>
+    <text x="16" y="104" fill="#8b9cb5" font-family="-apple-system, sans-serif" font-size="10">Page: 0x0020 (Sensor)</text>
+    <text x="16" y="122" fill="#8b9cb5" font-family="-apple-system, sans-serif" font-size="10">Usage: 0x008A (Angle)</text>
+    <rect x="14" y="136" width="167" height="24" rx="6" fill="#00ff88" fill-opacity="0.1" />
+    <text x="97" y="152" fill="#00ff88" font-family="-apple-system, sans-serif" font-size="10" font-weight="bold" text-anchor="middle">60 Hz Polling Rate</text>
+  </g>
+  <path d="M 231 172 L 266 172" stroke="#00d2ff" stroke-width="2" stroke-dasharray="4 3" />
+  <polygon points="266,172 258,168 258,176" fill="#00d2ff" />
+  <!-- Card 2: DSP Filtering -->
+  <g transform="translate(266, 85)">
+    <rect width="195" height="175" rx="12" fill="url(#cardGradArch)" stroke="#2b3b55" stroke-width="1.5" />
+    <rect x="14" y="14" width="167" height="24" rx="6" fill="#00ff88" fill-opacity="0.15" />
+    <text x="97" y="30" fill="#00ff88" font-family="-apple-system, sans-serif" font-size="10" font-weight="bold" text-anchor="middle">DSP FILTERING</text>
+    <text x="16" y="65" fill="#ffffff" font-family="-apple-system, sans-serif" font-size="13" font-weight="bold">Low-Latency EMA</text>
+    <text x="16" y="86" fill="#8b9cb5" font-family="-apple-system, sans-serif" font-size="10">Deadband: 0.05 deg</text>
+    <text x="16" y="104" fill="#8b9cb5" font-family="-apple-system, sans-serif" font-size="10">Follow Speed: 22.0</text>
+    <text x="16" y="122" fill="#8b9cb5" font-family="-apple-system, sans-serif" font-size="10">turn: 0.0 to 1.0 Normalized</text>
+    <rect x="14" y="136" width="167" height="24" rx="6" fill="#00d2ff" fill-opacity="0.1" />
+    <text x="97" y="152" fill="#00d2ff" font-family="-apple-system, sans-serif" font-size="10" font-weight="bold" text-anchor="middle">Strict 90 deg Boundary</text>
+  </g>
+  <path d="M 461 172 L 496 172" stroke="#00d2ff" stroke-width="2" stroke-dasharray="4 3" />
+  <polygon points="496,172 488,168 488,176" fill="#00d2ff" />
+  <!-- Card 3: Metal Shaders GPU -->
+  <g transform="translate(496, 85)">
+    <rect width="200" height="175" rx="12" fill="url(#cardGradArch)" stroke="#2b3b55" stroke-width="1.5" />
+    <rect x="14" y="14" width="172" height="24" rx="6" fill="#8b5cf6" fill-opacity="0.2" />
+    <text x="100" y="30" fill="#a78bfa" font-family="-apple-system, sans-serif" font-size="10" font-weight="bold" text-anchor="middle">METAL SHADER GPU</text>
+    <text x="16" y="65" fill="#ffffff" font-family="-apple-system, sans-serif" font-size="13" font-weight="bold">Frustum &amp; Optics</text>
+    <text x="16" y="86" fill="#8b9cb5" font-family="-apple-system, sans-serif" font-size="10">16-Sample Fermat Bokeh</text>
+    <text x="16" y="104" fill="#8b9cb5" font-family="-apple-system, sans-serif" font-size="10">Top Width: 46% Taper</text>
+    <text x="16" y="122" fill="#8b9cb5" font-family="-apple-system, sans-serif" font-size="10">Liquid Retina Squircle SDF</text>
+    <rect x="14" y="136" width="172" height="24" rx="6" fill="#a78bfa" fill-opacity="0.15" />
+    <text x="100" y="152" fill="#a78bfa" font-family="-apple-system, sans-serif" font-size="10" font-weight="bold" text-anchor="middle">120 FPS Retina Sync</text>
+  </g>
+  <path d="M 696 172 L 731 172" stroke="#00d2ff" stroke-width="2" stroke-dasharray="4 3" />
+  <polygon points="731,172 723,168 723,176" fill="#00d2ff" />
+  <!-- Card 4: Secure Overlay -->
+  <g transform="translate(731, 85)">
+    <rect width="195" height="175" rx="12" fill="url(#cardGradArch)" stroke="#2b3b55" stroke-width="1.5" />
+    <rect x="14" y="14" width="167" height="24" rx="6" fill="#ec4899" fill-opacity="0.2" />
+    <text x="97" y="30" fill="#f472b6" font-family="-apple-system, sans-serif" font-size="10" font-weight="bold" text-anchor="middle">SECURE OVERLAY</text>
+    <text x="16" y="65" fill="#ffffff" font-family="-apple-system, sans-serif" font-size="13" font-weight="bold">NonActivatingPanel</text>
+    <text x="16" y="86" fill="#8b9cb5" font-family="-apple-system, sans-serif" font-size="10">canBecomeKey = false</text>
+    <text x="16" y="104" fill="#8b9cb5" font-family="-apple-system, sans-serif" font-size="10">ignoresMouseEvents = true</text>
+    <text x="16" y="122" fill="#8b9cb5" font-family="-apple-system, sans-serif" font-size="10">Zero Password Capture</text>
+    <rect x="14" y="136" width="167" height="24" rx="6" fill="#00ff88" fill-opacity="0.1" />
+    <text x="97" y="152" fill="#00ff88" font-family="-apple-system, sans-serif" font-size="10" font-weight="bold" text-anchor="middle">Lock Screen 100% Safe</text>
+  </g>
+</svg>

@@ -12,6 +12,54 @@ Native macOS application recreating the 3D folding display effect of Apple iPhon
 
 ---
 
+## Direct Download (No Compilation Needed)
+
+Download the pre-built, ready-to-run macOS application:
+
+- **[Download ProgressiveBlur.app (v1.0 Zip)](https://github.com/JenilRevaliya/Progressive-Blur/raw/main/ProgressiveBlur.zip)** (2.6 MB)
+
+### Quick Setup in 3 Steps:
+1. Click the download link above to get `ProgressiveBlur.zip`.
+2. Double-click `ProgressiveBlur.zip` to extract `ProgressiveBlur.app`.
+3. Drag `ProgressiveBlur.app` into your `/Applications` folder and double-click to launch.
+
+---
+
+## If macOS Does Not Allow Opening (Gatekeeper Guide)
+
+When launching an application downloaded outside the Mac App Store, macOS Gatekeeper may display a security alert:
+- *"ProgressiveBlur cannot be opened because Apple cannot check it for malicious software"*
+- *"ProgressiveBlur was blocked from use because it is not from an identified developer"*
+- *"ProgressiveBlur is damaged and cannot be opened"*
+
+This is standard macOS security protection for ad-hoc built software. You can easily permit it using any of the following three methods:
+
+### Option 1: System Settings (Recommended)
+1. Open **System Settings** on your Mac.
+2. Select **Privacy & Security** from the left sidebar.
+3. Scroll down to the **Security** section.
+4. You will see: *"ProgressiveBlur was blocked from use because it is not from an identified developer"*.
+5. Click **Open Anyway**.
+6. Enter your Mac user password or use Touch ID, then click **Open**.
+
+### Option 2: Control-Click Shortcut (Fastest)
+1. In Finder, locate `ProgressiveBlur.app` (in Applications or Downloads).
+2. Press and hold the **Control** key on your keyboard and click `ProgressiveBlur.app` (or **right-click**).
+3. Select **Open** from the context menu.
+4. In the dialog box that appears, click **Open**.
+5. The application will start, and macOS will remember this approval permanently.
+
+### Option 3: Terminal Command (Instant One-Liner)
+If macOS displays an alert saying the app is damaged or blocked, open **Terminal** and run:
+```bash
+xattr -cr /Applications/ProgressiveBlur.app
+```
+(If the app is still in your Downloads folder: `xattr -cr ~/Downloads/ProgressiveBlur.app`)
+
+This command strips the quarantine metadata tag and allows immediate execution.
+
+---
+
 ## Core Highlights
 
 - **Physical Lid Angle Driving**: Tracks physical lid rotation at 60 Hz via Apple Hall sensor (Vendor 0x05AC, Product 0x8104, Usage Page 0x0020, Usage 0x008A).
