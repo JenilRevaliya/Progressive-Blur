@@ -1,26 +1,37 @@
 import SwiftUI
 
-// Visual PNG Resource Loader
+// Visual Graphic Resource Loader (supports PNG and SVG)
 struct ResourcePNGView: View {
     let name: String
     var width: CGFloat? = nil
     var height: CGFloat? = nil
     
     var body: some View {
-        if let path = Bundle.main.path(forResource: name, ofType: "png"),
-           let nsImg = NSImage(contentsOfFile: path) {
-            Image(nsImage: nsImg)
-                .resizable()
-                .scaledToFit()
-                .frame(width: width, height: height)
-        } else if let localImg = NSImage(contentsOfFile: "/Users/jenilrevaliya/Desktop/Projects/Progressive Blur/Resources/\(name).png") {
-            Image(nsImage: localImg)
+        if let img = loadGraphic(name: name) {
+            Image(nsImage: img)
                 .resizable()
                 .scaledToFit()
                 .frame(width: width, height: height)
         } else {
             EmptyView()
         }
+    }
+    
+    private func loadGraphic(name: String) -> NSImage? {
+        if let path = Bundle.main.path(forResource: name, ofType: "png"), let img = NSImage(contentsOfFile: path) {
+            return img
+        }
+        if let path = Bundle.main.path(forResource: name, ofType: "svg"), let img = NSImage(contentsOfFile: path) {
+            return img
+        }
+        let localDir = "/Users/jenilrevaliya/Desktop/Projects/Progressive Blur/Resources"
+        if let img = NSImage(contentsOfFile: "\(localDir)/\(name).png") {
+            return img
+        }
+        if let img = NSImage(contentsOfFile: "\(localDir)/\(name).svg") {
+            return img
+        }
+        return nil
     }
 }
 

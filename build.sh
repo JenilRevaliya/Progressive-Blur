@@ -30,8 +30,9 @@ cp "$PROJECT_DIR/Resources/Info.plist" "$CONTENTS_DIR/Info.plist"
 # Copy Shaders.metal to Resources
 cp "$PROJECT_DIR/Sources/Graphics/Shaders.metal" "$RESOURCES_DIR/Shaders.metal"
 
-# Copy PNG and graphic assets to Resources
+# Copy PNG and graphic SVG assets to Resources
 cp "$PROJECT_DIR/Resources/"*.png "$RESOURCES_DIR/" 2>/dev/null || true
+cp "$PROJECT_DIR/Resources/"*.svg "$RESOURCES_DIR/" 2>/dev/null || true
 
 # Ad-hoc code signing with stable designated requirement and entitlements
 echo "-> Applying code signature with persistent designated requirement..."
