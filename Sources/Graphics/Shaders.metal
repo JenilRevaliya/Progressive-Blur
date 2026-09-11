@@ -59,44 +59,60 @@ inline float sdMacBookNotch(float2 pNotch, float2 notchHalfSize, float bottomRad
     return min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - bottomRadius;
 }
 
-// Grain-free, creamy 16-sample optical defocus blur
-// Ultra-fast M1 bandwidth: 16 samples + continuous trilinear mip blend = zero noise, zero grain
-inline float3 sampleCreamyBokehBlur(
+// Silky, zero-ghosting 32-sample optical defocus blur
+// Uses deterministic Vogel disc with screen-space interleaved gradient micro-jitter
+// and continuous trilinear mipmap filtering to completely eliminate duplicate echoes.
+inline float3 sampleSilkyDefocusBlur(
     texture2d<float> tex,
     sampler s,
     float2 uv,
     float radius,
     float2 cover,
-    float2 uiPixel
+    float2 uiPixel,
+    float2 screenPos
 ) {
     float2 tuv = (uv - 0.5) * cover + 0.5;
     
-    // Near hinge or small radius: return razor-sharp native Retina sample with zero loop overhead
-    if (radius <= 0.6) {
+    // Near hinge or minimal radius: return razor-sharp native Retina sample with zero overhead
+    if (radius <= 0.25) {
         return tex.sample(s, tuv, level(0.0)).rgb;
     }
     
-    // Continuous float mip LOD mapping for silky trilinear mip-blend
-    float baseLod = clamp(log2(1.0 + radius * 0.25), 0.0, 2.5);
+    // Continuous float mip LOD mapping for trilinear mip blend
+    // Prevents undersampling when blur radius is large
+    float baseLod = clamp(log2(max(1.0, radius * 0.22)), 0.0, 2.2);
+    
+    // Screen-space interleaved gradient noise rotation:
+    // Rotates the sample spiral uniquely at each pixel to destroy discrete duplicate echoes
+    float noise = fract(52.9829189 * fract(dot(screenPos, float2(0.06711056, 0.00583715))));
+    float rot = noise * 6.28318530718;
+    float cosR = cos(rot);
+    float sinR = sin(rot);
     
     float3 accum = float3(0.0);
     float totalWeight = 0.0;
     
-    // Deterministic area-proportional Fermat golden-spiral disc
-    for (int i = 0; i < NUM_BLUR_SAMPLES; i++) {
+    constexpr int NUM_SAMPLES = 32;
+    constexpr float GOLDEN_ANGLE = 2.39996323; // pi * (3.0 - sqrt(5.0))
+    
+    for (int i = 0; i < NUM_SAMPLES; i++) {
         float fi = float(i);
         float theta = fi * GOLDEN_ANGLE;
-        float r = sqrt((fi + 0.5) / float(NUM_BLUR_SAMPLES));
+        float r = sqrt((fi + 0.5) / float(NUM_SAMPLES));
         
-        float2 dir = float2(cos(theta), sin(theta));
+        // Rotate direction by per-pixel micro-jitter
+        float uX = cos(theta);
+        float uY = sin(theta);
+        float2 dir = float2(uX * cosR - uY * sinR, uX * sinR + uY * cosR);
+        
         float2 offset = dir * (r * radius * uiPixel);
-        float2 sampleUV = clamp(tuv + offset, 0.0, 1.0);
+        float2 sampleUV = clamp(tuv + offset, 0.001, 0.999);
         
-        // Optical Gaussian falloff from center of lens aperture
-        float weight = exp(-2.0 * r * r);
+        // Gaussian optical falloff from center of lens aperture
+        float weight = exp(-2.4 * r * r);
         
-        // Outer samples transition smoothly into the filtered mip level
-        float sampleLod = mix(0.0, baseLod, smoothstep(0.2, 0.8, r));
+        // Center samples draw fine details; outer samples blend into smooth pre-filtered mip
+        float sampleLod = mix(0.0, baseLod, smoothstep(0.15, 0.85, r));
         
         accum += tex.sample(s, sampleUV, level(sampleLod)).rgb * weight;
         totalWeight += weight;
@@ -104,9 +120,9 @@ inline float3 sampleCreamyBokehBlur(
     
     float3 blurred = accum / totalWeight;
     
-    // Smooth onset of defocus
+    // Smooth transition from sharp to blurred as radius increases from zero
     float3 sharp = tex.sample(s, tuv, level(0.0)).rgb;
-    return mix(sharp, blurred, smoothstep(0.6, 2.2, radius));
+    return mix(sharp, blurred, smoothstep(0.1, 1.8, radius));
 }
 
 fragment float4 foldFragment(
@@ -126,91 +142,86 @@ fragment float4 foldFragment(
     float2 uiPixel = 1.0 / max(float2(1.0), u.imageSize);
     
     // Coordinates on physical display:
-    // yScreen: 0.0 at bottom hinge, 1.0 at top notch
+    // yScreen: 0.0 at bottom hinge, 1.0 at top of display
     // xScreen: horizontal offset from center (-0.5 to +0.5)
     float yScreen = clamp(1.0 - in.uv.y, 0.0, 1.0);
     float xScreen = in.uv.x - 0.5;
     
-    // Proportional Opposite Hinge Perspective Angle:
-    // Physically, as the MacBook lid rotates downward from 90° towards 0° (turn 0.0 -> 1.0),
-    // the virtual inside screen tilts back by an angle phi strictly proportional to (90° - hingeAngle).
-    // Max physical tilt is capped at ~85° (1.4835 rad) to prevent singularity at 90°.
-    float maxTilt = 1.4835;
-    float pStrength = max(0.2, u.perspectiveStrength);
-    float bend = clamp(turn * maxTilt * pStrength, 0.0, 1.52);
-    float cosine = cos(bend);
-    float sine = sin(bend);
+    // True 3D Clamshell Hinge Perspective:
+    // As the MacBook lid closes (turn 0.0 -> 1.0, 90 deg -> 0 deg):
+    // The panel rotates forward/downward toward the keyboard.
+    // The perspective projection maps screen coordinates (xScreen, yScreen)
+    // to virtual panel coordinates (x, v), where v is distance along panel from hinge (0.0 to 1.0).
+    float pStrength = clamp(u.perspectiveStrength, 0.4, 2.0);
+    float maxTilt = 1.15; // ~66 degrees maximum apparent tilt
+    float theta = turn * maxTilt;
+    float cosT = cos(theta);
+    float sinT = sin(theta);
     
-    // Camera distance in screen-height units
-    float eye = 1.35;
+    // Camera eye distance in display height units
+    float eye = 1.85 / pStrength;
     
-    // 3D Inverse Frustum Projection:
-    // Maps physical screen pixel (xScreen, yScreen) to virtual screen coordinate (x, v).
-    // Where v is distance from hinge along virtual surface (0.0 = hinge, 1.0 = top).
-    float denom = eye * cosine - yScreen * sine;
+    // Inverse perspective denominator:
+    // D = eye * cosT - yScreen * sinT
+    float denom = eye * cosT - yScreen * sinT;
     
-    // Pixel is above the vanishing horizon -> pitch black void
+    // If denom <= 0.005 or pixel is far above the folded lid: early-out to pure black void
     if (denom <= 0.005) {
         return float4(PURE_BLACK_VOID, 1.0);
     }
     
-    // Virtual surface coordinate v along tilted panel
+    // Virtual coordinate along the tilted panel from hinge (0.0 = hinge, 1.0 = top)
     float v = (yScreen * eye) / denom;
     
-    // Pixel is above physical top of the MacBook lid -> pitch black void
-    if (v > 1.05) {
+    // Pixel is above the top physical edge of the MacBook lid
+    if (v > 1.06) {
         return float4(PURE_BLACK_VOID, 1.0);
     }
     
-    // Decoupled horizontal trapezoid perspective:
-    // Narrower width at the farther (upper) edge, anchored to 100% full width at hinge
-    float x = xScreen * (1.0 + (v * sine * (0.85 * pStrength)) / eye);
+    // True horizontal perspective scaling:
+    // Content width narrows proportionally with distance v from hinge
+    float x = xScreen * (1.0 + (v * sinT) / eye);
     
-    // Pixel is outside the left/right physical bezel -> pitch black void
-    if (abs(x) > 0.54) {
+    // Pixel is outside the left/right physical display boundary
+    if (abs(x) > 0.55) {
         return float4(PURE_BLACK_VOID, 1.0);
     }
     
-    // Normalized virtual plane texture UV coordinates
+    // Normalized coordinates on the virtual display panel:
+    // plane.x in [0, 1] (0 = left edge, 1 = right edge)
+    // plane.y in [0, 1] (0 = top notch edge, 1 = bottom hinge)
     float2 plane;
     plane.x = x + 0.5;
     plane.y = 1.0 - v;
     
-    // Distance from hinge on virtual display:
-    // 0.0 is hinge (sharp, unblurred, full width)
-    // 1.0 is top (heavy defocus, narrower width, receding in 3D depth)
+    // Distance from hinge on virtual display (0.0 = hinge, 1.0 = top)
     float fromHinge = clamp(v, 0.0, 1.0);
     
-    // Spatial Contrast:
-    // Nearer edge (fromHinge < 0.15) MUST be razor-sharp and non-blur!
-    // Farther edge (fromHinge -> 1.0) ramps up into heavy defocus.
-    float hingeGradient = smoothstep(0.08, 0.92, fromHinge);
-    float blurSpread = pow(hingeGradient, 2.0); // Steep acceleration towards the top
+    // Progressive Defocus Blur Radius:
+    // Bottom hinge (fromHinge < 0.05) is razor-sharp native Retina!
+    // Progressively ramps up towards the top edge
+    float hingeGradient = smoothstep(0.04, 0.90, fromHinge);
+    float blurSpread = pow(hingeGradient, 1.6);
     float motion = smoothstep(0.0, 1.0, turn) * blurSpread;
-    float radius = 68.0 * motion * max(0.05, u.blurStrength);
+    float radius = 52.0 * motion * max(0.05, u.blurStrength);
     
-    // Apple-Style Screen Geometry SDF:
-    // Centered coordinates with aspect ratio scaling
+    // Display Boundary SDF on the virtual panel:
+    // Coordinates centered on the virtual panel:
+    // Top corners have Apple continuous squircle curvature; bottom corners at hinge are square.
     float2 p = float2(x * u.aspect, (1.0 - v) - 0.5);
     float2 halfBox = float2(0.5 * u.aspect, 0.5);
-    
-    // Signature Apple Display Corner Radius for top corners:
-    // ~44pt radius on a Retina display (~0.055 of screen height)
-    float appleTopCornerRadius = 0.054 * min(1.0, u.aspect);
-    
-    // Distance to display boundary (negative inside, positive outside)
+    float appleTopCornerRadius = 0.048 * min(1.0, u.aspect);
     float dist = sdMacBookDisplay(p, halfBox, appleTopCornerRadius);
     
-    // Exact sub-pixel edge antialiasing across 1 screen pixel
-    float edgeWidth = max(0.0008, fwidth(dist));
+    // Smooth antialiased display boundary
+    float edgeWidth = max(0.001, fwidth(dist));
     float edgeMask = 1.0 - smoothstep(-0.5 * edgeWidth, 0.5 * edgeWidth, dist);
     
-    // Early exit outside display boundary -> pure pitch black void
     if (edgeMask <= 0.0001) {
         return float4(PURE_BLACK_VOID, 1.0);
     }
     
-    // Camera Housing Notch for newer MacBook models:
+    // Camera Housing Notch on virtual panel:
     float inNotchMask = 0.0;
     float notchBezelRim = 0.0;
     float cameraLensDot = 0.0;
@@ -227,41 +238,37 @@ fragment float4 foldFragment(
         float notchDist = sdMacBookNotch(pNotch, notchHalfBox, notchRadius);
         inNotchMask = 1.0 - smoothstep(-0.5 * edgeWidth, 0.5 * edgeWidth, notchDist);
         
-        // Physical rim highlight around notch outline
-        notchBezelRim = exp(-abs(notchDist) / (edgeWidth * 2.0)) * 0.22 * (0.5 + 0.5 * sine);
+        notchBezelRim = exp(-abs(notchDist) / (edgeWidth * 2.0)) * 0.22 * (0.5 + 0.5 * sinT);
         
-        // Camera lens sensor reflection inside the notch
         float2 lensPos = float2(pNotch.x, pNotch.y + notchH * 0.05);
         float lensDist = length(lensPos);
         cameraLensDot = exp(-pow(lensDist / (0.0045 * min(1.0, u.aspect)), 2.0)) * 0.25;
     }
     
-    // Active display area (screen minus camera housing notch)
     float activeScreenMask = edgeMask * (1.0 - inNotchMask);
     
-    // Sample texture with grain-free, creamy optical defocus blur
-    float3 color = sampleCreamyBokehBlur(tex, s, plane, radius, u.cover, uiPixel);
+    // Sample texture with silky, zero-duplicate optical defocus blur
+    float3 color = sampleSilkyDefocusBlur(tex, s, plane, radius, u.cover, uiPixel, in.position.xy);
     
-    // Subtle physical glass rim highlight along the physical perimeter
-    float rimDistance = abs(dist);
-    float rimHighlight = exp(-rimDistance / (edgeWidth * 2.5)) * sine * 0.15;
+    // Subtle physical glass rim highlight along the display perimeter
+    float rimHighlight = exp(-abs(dist) / (edgeWidth * 2.5)) * sinT * 0.15;
     color += float3(0.75, 0.82, 0.90) * rimHighlight;
     
     // Specular light reflection band near the upper fold horizon
-    float foldReflection = exp(-pow((fromHinge - 0.70) / 0.28, 2.0)) * sine;
+    float foldReflection = exp(-pow((fromHinge - 0.75) / 0.25, 2.0)) * sinT;
     color += float3(0.85, 0.88, 0.92) * foldReflection * (0.025 * u.reflectionIntensity);
     
     // Physical glass attenuation as surface tilts away
-    color *= (1.0 - 0.18 * sine * pow(fromHinge, 1.4));
+    color *= (1.0 - 0.15 * sinT * pow(fromHinge, 1.4));
     
     // Dark Void Horizon Falloff: receding far top slips smoothly into darkness
-    float fadeStart = 0.20;
+    float fadeStart = 0.25;
     float fadeDistance = clamp((fromHinge - fadeStart) / (1.0 - fadeStart), 0.0, 1.0);
     float voidAmount = pow(turn, 1.1) * pow(fadeDistance, 1.3) * max(0.2, u.darkVoidIntensity);
     color *= (1.0 - 0.88 * voidAmount);
     
-    // Final closure into deep black as lid shuts completely (turn > 0.92)
-    float finalClose = 1.0 - smoothstep(0.92, 1.0, turn);
+    // Final closure into deep black as lid shuts completely (turn > 0.94)
+    float finalClose = 1.0 - smoothstep(0.94, 1.0, turn);
     color *= finalClose;
     
     // Base display color with notch cutout
@@ -269,7 +276,7 @@ fragment float4 foldFragment(
     
     // Add camera lens and notch bezel rim onto the physical housing
     if (u.hasNotch > 0.5) {
-        float3 lensColor = float3(0.12, 0.25, 0.45) * cameraLensDot * (0.3 + 0.7 * cosine);
+        float3 lensColor = float3(0.12, 0.25, 0.45) * cameraLensDot * (0.3 + 0.7 * cosT);
         float3 notchRimColor = float3(0.70, 0.75, 0.82) * notchBezelRim;
         screenColor += (lensColor + notchRimColor) * edgeMask * finalClose;
     }
