@@ -410,6 +410,23 @@ public struct SettingsView: View {
     // MARK: - Tab 2: Optics & Notch
     private var opticsTabView: some View {
         VStack(alignment: .leading, spacing: 16) {
+            // Hardware Hinge Bezel Outline (Off by default for authentic iPhone Duo look)
+            VStack(alignment: .leading, spacing: 10) {
+                Toggle(isOn: $settings.showHingeBezelOutline) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Simulate Hardware Hinge Frame")
+                            .font(.system(size: 13, weight: .semibold))
+                        Text("Off by default for seamless iPhone Duo progressive blur. When enabled, renders MacBook unibody bezel, rounded corners, and notch.")
+                            .font(.system(size: 11))
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .toggleStyle(.switch)
+            }
+            .padding(14)
+            .background(Color.white.opacity(0.05))
+            .cornerRadius(12)
+            
             // Notch Section
             HStack(spacing: 14) {
                 ResourcePNGView(name: "notch_display_icon", width: 65, height: 65)
@@ -440,7 +457,7 @@ public struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Optics & Defocus Parameters")
                             .font(.system(size: 13, weight: .semibold))
-                        Text("16-sample Fermat golden spiral bokeh blur")
+                        Text("32-sample dithered Vogel disc blur with top-edge depth darkening")
                             .font(.system(size: 11))
                             .foregroundColor(.secondary)
                     }

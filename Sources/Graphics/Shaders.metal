@@ -16,7 +16,7 @@ struct Uniforms {
     float darkVoidIntensity;
     float reflectionIntensity;
     float hasNotch;                // 1.0 = notch visible, 0.0 = disabled
-    float padding;
+    float showHingeFrame;          // 0.0 = iPhone Duo full-screen mode (default), 1.0 = hardware bezel & notch
     float2 notchSize;              // (normalized width, normalized height)
 };
 
@@ -141,87 +141,120 @@ fragment float4 foldFragment(
     
     float2 uiPixel = 1.0 / max(float2(1.0), u.imageSize);
     
-    // Coordinates on physical display:
-    // yScreen: 0.0 at bottom hinge, 1.0 at top of display
-    // xScreen: horizontal offset from center (-0.5 to +0.5)
+    // =========================================================================
+    // MODE A: Authentic iPhone Duo Progressive Blur (Default, showHingeFrame < 0.5)
+    // Full-screen seamless progressive blur anchored at the bottom hinge line.
+    // As the lid closes, the top side tilts away in perspective, blurs with Vogel disc,
+    // and darkens gradually into deep shadow.
+    // =========================================================================
+    if (u.showHingeFrame < 0.5) {
+        // Hinge is anchored at the bottom edge of the display (in.uv.y = 1.0)
+        float fromHinge = clamp(1.0 - in.uv.y, 0.0, 1.0);
+        
+        float bend = turn * MAX_TILT;
+        float cosine = cos(bend);
+        float sine = sin(bend);
+        
+        // Stable perspective projection matching iPhone Duo foldable geometry
+        float invAspect = 1.0 / max(0.1, u.aspect);
+        float eye = (3.2 * max(invAspect, 1.0)) / max(0.2, u.perspectiveStrength);
+        float depth = fromHinge * (0.80 * invAspect) * sine;
+        float perspective = eye / max(0.01, (eye - depth));
+        
+        float2 plane;
+        plane.y = 1.0 - fromHinge * cosine * perspective;
+        plane.x = 0.5 + (in.uv.x - 0.5) * perspective;
+        
+        // Progressive Defocus Blur:
+        // Hinge line (fromHinge = 0.0) stays razor-sharp native Retina.
+        // Defocus blur spreads progressively towards the top edge.
+        float blurSpread = pow(smoothstep(0.0, 0.85, fromHinge), 1.25);
+        float motion = smoothstep(0.0, 1.0, turn) * mix(0.15, 1.0, blurSpread);
+        float radius = 56.0 * motion * max(0.05, u.blurStrength);
+        
+        // Lateral perspective margin softness
+        float softness = fwidth(in.uv.x) * 2.0 + radius * 0.0015;
+        float sideMask = 1.0 - smoothstep(0.5 - softness, 0.5 + softness, abs(plane.x - 0.5));
+        float topMask = (plane.y >= -0.05) ? (1.0 - smoothstep(-0.05, 0.02, -plane.y)) : 0.0;
+        float mask = clamp(sideMask * topMask, 0.0, 1.0);
+        
+        // Sample texture using 32-sample Vogel disc continuous matte blur
+        float3 color = sampleSilkyDefocusBlur(tex, s, plane, radius, u.cover, uiPixel, in.position.xy);
+        
+        // Gradual Top-Edge Depth Darkening:
+        // Content darkens progressively alongside blur:
+        // Hinge line remains 100% bright and clear Retina,
+        // while the receding top edge falls smoothly and progressively into deep shadow.
+        float topDarkGradient = pow(fromHinge, 1.25);
+        float foldDarkProgress = pow(turn, 0.80);
+        float darkFalloff = topDarkGradient * foldDarkProgress * clamp(u.darkVoidIntensity, 0.3, 2.5);
+        float brightness = clamp(1.0 - 0.95 * darkFalloff, 0.0, 1.0);
+        color *= brightness;
+        
+        // Subtle optical glass attenuation and specular sheen
+        float glass = sine * pow(fromHinge, 1.5);
+        color *= (1.0 - 0.18 * glass);
+        float reflection = exp(-pow((fromHinge - 0.65) / 0.35, 2.0)) * sine;
+        color += float3(0.82, 0.85, 0.88) * reflection * (0.025 * u.reflectionIntensity);
+        
+        // Final smooth closure into black void as lid completely shuts (turn > 0.92)
+        float finalClose = 1.0 - smoothstep(0.92, 1.0, turn);
+        color *= finalClose;
+        
+        return float4(mix(PURE_BLACK_VOID, color, mask * finalClose), 1.0);
+    }
+    
+    // =========================================================================
+    // MODE B: Hardware Clamshell Simulation (Optional, showHingeFrame >= 0.5)
+    // Simulates MacBook unibody display bezel, squircle top corners,
+    // and Liquid Retina camera housing notch cutout.
+    // =========================================================================
     float yScreen = clamp(1.0 - in.uv.y, 0.0, 1.0);
     float xScreen = in.uv.x - 0.5;
     
-    // True 3D Clamshell Hinge Perspective:
-    // As the MacBook lid closes (turn 0.0 -> 1.0, 90 deg -> 0 deg):
-    // The panel rotates forward/downward toward the keyboard.
-    // The perspective projection maps screen coordinates (xScreen, yScreen)
-    // to virtual panel coordinates (x, v), where v is distance along panel from hinge (0.0 to 1.0).
     float pStrength = clamp(u.perspectiveStrength, 0.4, 2.0);
-    float maxTilt = 1.15; // ~66 degrees maximum apparent tilt
+    float maxTilt = 1.15;
     float theta = turn * maxTilt;
     float cosT = cos(theta);
     float sinT = sin(theta);
     
-    // Camera eye distance in display height units
     float eye = 1.85 / pStrength;
-    
-    // Inverse perspective denominator:
-    // D = eye * cosT - yScreen * sinT
     float denom = eye * cosT - yScreen * sinT;
-    
-    // If denom <= 0.005 or pixel is far above the folded lid: early-out to pure black void
     if (denom <= 0.005) {
         return float4(PURE_BLACK_VOID, 1.0);
     }
     
-    // Virtual coordinate along the tilted panel from hinge (0.0 = hinge, 1.0 = top)
     float v = (yScreen * eye) / denom;
-    
-    // Pixel is above the top physical edge of the MacBook lid
     if (v > 1.06) {
         return float4(PURE_BLACK_VOID, 1.0);
     }
     
-    // True horizontal perspective scaling:
-    // Content width narrows proportionally with distance v from hinge
     float x = xScreen * (1.0 + (v * sinT) / eye);
-    
-    // Pixel is outside the left/right physical display boundary
     if (abs(x) > 0.55) {
         return float4(PURE_BLACK_VOID, 1.0);
     }
     
-    // Normalized coordinates on the virtual display panel:
-    // plane.x in [0, 1] (0 = left edge, 1 = right edge)
-    // plane.y in [0, 1] (0 = top notch edge, 1 = bottom hinge)
     float2 plane;
     plane.x = x + 0.5;
     plane.y = 1.0 - v;
-    
-    // Distance from hinge on virtual display (0.0 = hinge, 1.0 = top)
     float fromHinge = clamp(v, 0.0, 1.0);
     
-    // Progressive Defocus Blur Radius:
-    // Bottom hinge (fromHinge < 0.05) is razor-sharp native Retina!
-    // Progressively ramps up towards the top edge
     float hingeGradient = smoothstep(0.04, 0.90, fromHinge);
     float blurSpread = pow(hingeGradient, 1.6);
     float motion = smoothstep(0.0, 1.0, turn) * blurSpread;
     float radius = 52.0 * motion * max(0.05, u.blurStrength);
     
-    // Display Boundary SDF on the virtual panel:
-    // Coordinates centered on the virtual panel:
-    // Top corners have Apple continuous squircle curvature; bottom corners at hinge are square.
     float2 p = float2(x * u.aspect, (1.0 - v) - 0.5);
     float2 halfBox = float2(0.5 * u.aspect, 0.5);
     float appleTopCornerRadius = 0.048 * min(1.0, u.aspect);
     float dist = sdMacBookDisplay(p, halfBox, appleTopCornerRadius);
     
-    // Smooth antialiased display boundary
     float edgeWidth = max(0.001, fwidth(dist));
     float edgeMask = 1.0 - smoothstep(-0.5 * edgeWidth, 0.5 * edgeWidth, dist);
-    
     if (edgeMask <= 0.0001) {
         return float4(PURE_BLACK_VOID, 1.0);
     }
     
-    // Camera Housing Notch on virtual panel:
     float inNotchMask = 0.0;
     float notchBezelRim = 0.0;
     float cameraLensDot = 0.0;
@@ -231,13 +264,11 @@ fragment float4 foldFragment(
         float notchH = u.notchSize.y;
         float notchRadius = 0.012 * min(1.0, u.aspect);
         
-        // pNotch: centered horizontally, extends downward from top edge (y = -0.5)
         float2 pNotch = float2(p.x, p.y - (-0.5 + notchH * 0.5));
         float2 notchHalfBox = float2(notchHalfW, notchH * 0.5);
         
         float notchDist = sdMacBookNotch(pNotch, notchHalfBox, notchRadius);
         inNotchMask = 1.0 - smoothstep(-0.5 * edgeWidth, 0.5 * edgeWidth, notchDist);
-        
         notchBezelRim = exp(-abs(notchDist) / (edgeWidth * 2.0)) * 0.22 * (0.5 + 0.5 * sinT);
         
         float2 lensPos = float2(pNotch.x, pNotch.y + notchH * 0.05);
@@ -246,35 +277,26 @@ fragment float4 foldFragment(
     }
     
     float activeScreenMask = edgeMask * (1.0 - inNotchMask);
-    
-    // Sample texture with silky, zero-duplicate optical defocus blur
     float3 color = sampleSilkyDefocusBlur(tex, s, plane, radius, u.cover, uiPixel, in.position.xy);
     
-    // Subtle physical glass rim highlight along the display perimeter
+    // Gradual top-edge depth darkening:
+    float topDarkGradient = pow(fromHinge, 1.25);
+    float foldDarkProgress = pow(turn, 0.80);
+    float darkFalloff = topDarkGradient * foldDarkProgress * clamp(u.darkVoidIntensity, 0.3, 2.5);
+    float brightness = clamp(1.0 - 0.95 * darkFalloff, 0.0, 1.0);
+    color *= brightness;
+    
     float rimHighlight = exp(-abs(dist) / (edgeWidth * 2.5)) * sinT * 0.15;
     color += float3(0.75, 0.82, 0.90) * rimHighlight;
     
-    // Specular light reflection band near the upper fold horizon
     float foldReflection = exp(-pow((fromHinge - 0.75) / 0.25, 2.0)) * sinT;
     color += float3(0.85, 0.88, 0.92) * foldReflection * (0.025 * u.reflectionIntensity);
-    
-    // Physical glass attenuation as surface tilts away
     color *= (1.0 - 0.15 * sinT * pow(fromHinge, 1.4));
     
-    // Dark Void Horizon Falloff: receding far top slips smoothly into darkness
-    float fadeStart = 0.25;
-    float fadeDistance = clamp((fromHinge - fadeStart) / (1.0 - fadeStart), 0.0, 1.0);
-    float voidAmount = pow(turn, 1.1) * pow(fadeDistance, 1.3) * max(0.2, u.darkVoidIntensity);
-    color *= (1.0 - 0.88 * voidAmount);
-    
-    // Final closure into deep black as lid shuts completely (turn > 0.94)
     float finalClose = 1.0 - smoothstep(0.94, 1.0, turn);
     color *= finalClose;
     
-    // Base display color with notch cutout
     float3 screenColor = mix(PURE_BLACK_VOID, color, activeScreenMask * finalClose);
-    
-    // Add camera lens and notch bezel rim onto the physical housing
     if (u.hasNotch > 0.5) {
         float3 lensColor = float3(0.12, 0.25, 0.45) * cameraLensDot * (0.3 + 0.7 * cosT);
         float3 notchRimColor = float3(0.70, 0.75, 0.82) * notchBezelRim;

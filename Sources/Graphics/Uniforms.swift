@@ -11,7 +11,7 @@ public struct Uniforms {
     public var darkVoidIntensity: Float
     public var reflectionIntensity: Float
     public var hasNotch: Float                // 1.0 = notch visible, 0.0 = disabled
-    public var padding: Float                 // Alignment padding
+    public var showHingeFrame: Float           // 0.0 = iPhone Duo full-screen mode (default), 1.0 = hardware bezel and notch frame
     public var notchSize: SIMD2<Float>        // (normalized width, normalized height)
     
     public init(
@@ -24,6 +24,7 @@ public struct Uniforms {
         darkVoidIntensity: Float = 1.0,
         reflectionIntensity: Float = 0.3,
         hasNotch: Float = 0.0,
+        showHingeFrame: Float = 0.0,
         notchSize: SIMD2<Float> = .init(0.138, 0.038)
     ) {
         self.imageSize = imageSize
@@ -35,7 +36,7 @@ public struct Uniforms {
         self.darkVoidIntensity = darkVoidIntensity
         self.reflectionIntensity = reflectionIntensity
         self.hasNotch = hasNotch
-        self.padding = 0.0
+        self.showHingeFrame = showHingeFrame
         self.notchSize = notchSize
     }
 }

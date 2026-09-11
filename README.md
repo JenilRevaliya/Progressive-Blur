@@ -15,10 +15,10 @@ Native macOS application recreating the 3D folding display effect of Apple iPhon
 ## Core Highlights
 
 - **Physical Lid Angle Driving**: Tracks physical lid rotation at 60 Hz via Apple Hall sensor (Vendor 0x05AC, Product 0x8104, Usage Page 0x0020, Usage 0x008A).
-- **Proportional Opposite Inside Perspective**: Inside 3D virtual screen tilts backward in exact proportion to the physical folding angle (90 deg - hinge angle).
-- **Top Width Taper**: Displays a narrower upper edge (down to 46% width) while anchoring the bottom edge to 100% full screen width at the physical hinge axis.
-- **Grain-Free Fermat Bokeh Defocus**: 16-sample golden spiral disc bokeh with trilinear mipmap blend, locking at 60/120 FPS.
-- **Apple Liquid Retina Notch Portrayal**: Signed Distance Field (SDF) camera housing notch with sapphire optical lens reflection and bezel highlight.
+- **Authentic iPhone Duo Progressive Blur (Default)**: Full-screen seamless progressive blur with projective perspective mapping, anchored at the bottom hinge.
+- **Top Edge Depth Darkening**: Alongside optical defocus blur, the receding top edge darkens gradually into deep shadow, while the bottom edge at the hinge remains 100% bright and razor-sharp Retina.
+- **Optional Hardware Hinge Frame**: Off by default. When enabled in Optics settings, displays the MacBook unibody bezel, rounded top corners, and Liquid Retina notch cutout.
+- **Ghost-Free 32-Sample Vogel Blur**: Continuous Fermat golden spiral disc with screen-space interleaved gradient micro-dither, eliminating duplicate echoes and banding.
 - **Strict 90-Degree Rule**: Zero CPU/GPU overhead at or above 90 degrees. Normal desktop is 100% visible.
 - **Lock Screen & Password Login Safe**: Non-activating overlay panel (canBecomeKey = false, ignoresMouseEvents = true). The macOS password prompt receives 100% uninterrupted input focus when opening the lid.
 - **Emergency ESC Key Exit**: Pressing Escape immediately dismisses active animations and restores standard desktop display.
@@ -78,9 +78,11 @@ When the MacBook lid rotates downward from 90 degrees toward 0 degrees:
 - **Option C (Automated Lid Open Sweep)**: Triggers an unfolding sweep whenever the lid opens, wakes, or unlocks. Configurable duration (0.2s to 3.0s) and easing curves (Apple Spring, Ease-Out, Linear).
 - **Interactive Manual Simulator**: Real-time slider (0 deg to 120 deg) with quick presets for testing without moving the lid.
 
-### 2. Display Geometry & Camera Notch
+### 2. Display Geometry & Hardware Frame
 ![Display Notch](Resources/notch_display_icon.png)
 
+- **iPhone Duo Seamless Mode (Default)**: Full-bleed progressive blur across the entire display without artificial borders or bezel cuts.
+- **Simulate Hardware Hinge Frame (Optional)**: Off by default. When enabled, renders the MacBook unibody chassis outline, rounded top corners, and notch cutout.
 - **Auto-Detect**: Automatically portrays the camera notch on Liquid Retina MacBooks (M2/M3/M4 Air and 14"/16" Pro).
 - **Always Portray**: Simulates the notch cutout, antireflective camera lens, and bezel highlight on any screen.
 - **Never Portray**: Flat display boundary for classic non-notch models.
@@ -88,6 +90,7 @@ When the MacBook lid rotates downward from 90 degrees toward 0 degrees:
 ### 3. Optics & Defocus Blur
 ![Optical Defocus](Resources/optical_blur_icon.png)
 
+- **Gradual Top Edge Darkening**: Progressively shadows the receding upper edge as the lid folds downward, anchoring full brightness at the bottom hinge.
 - **Blur Multiplier**: Controls the maximum bokeh defocus radius at the far edge.
 - **Perspective Depth**: Adjusts the intensity of the 3D trapezoid width taper.
 - **Dark Void Horizon**: Controls the gradient falloff into the pitch-black OLED void.

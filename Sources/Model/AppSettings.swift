@@ -76,6 +76,7 @@ public final class AppSettings: ObservableObject, @unchecked Sendable {
     private let kTrackpadSensitivity = "pb_trackpadSensitivity"
     private let kEnableLockScreenOverlay = "pb_enableLockScreenOverlay"
     private let kNotchDisplayMode = "pb_notchDisplayMode"
+    private let kShowHingeBezelOutline = "pb_showHingeBezelOutline"
     
     // Configurable Tracking Mode
     @Published public var trackingMode: TrackingMode {
@@ -105,6 +106,10 @@ public final class AppSettings: ObservableObject, @unchecked Sendable {
     
     @Published public var notchDisplayMode: NotchDisplayMode {
         didSet { UserDefaults.standard.set(notchDisplayMode.rawValue, forKey: kNotchDisplayMode) }
+    }
+    
+    @Published public var showHingeBezelOutline: Bool {
+        didSet { UserDefaults.standard.set(showHingeBezelOutline, forKey: kShowHingeBezelOutline) }
     }
     
     /// True if notch cutout and camera dot should be portrayed in the 3D clamshell
@@ -223,6 +228,7 @@ public final class AppSettings: ObservableObject, @unchecked Sendable {
         
         let savedNotch = defaults.integer(forKey: kNotchDisplayMode)
         self.notchDisplayMode = defaults.object(forKey: kNotchDisplayMode) != nil ? (NotchDisplayMode(rawValue: savedNotch) ?? .auto) : .auto
+        self.showHingeBezelOutline = defaults.object(forKey: kShowHingeBezelOutline) != nil ? defaults.bool(forKey: kShowHingeBezelOutline) : false
     }
     
     public func applyTrackingModeChange() {

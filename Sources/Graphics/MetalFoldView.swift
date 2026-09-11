@@ -233,6 +233,7 @@ public final class MetalFoldView: MTKView, MTKViewDelegate {
             darkVoidIntensity: Float(settings.darkVoidIntensity),
             reflectionIntensity: Float(settings.reflectionIntensity),
             hasNotch: settings.shouldPortrayNotch ? 1.0 : 0.0,
+            showHingeFrame: settings.showHingeBezelOutline ? 1.0 : 0.0,
             notchSize: settings.notchNormalizedSize
         )
         
