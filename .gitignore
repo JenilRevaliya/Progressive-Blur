@@ -1,0 +1,6 @@
+.DS_Store
+.build/
+ProgressiveBlur.app
+*.xcodeproj
+*.xcworkspace
+DerivedData/
